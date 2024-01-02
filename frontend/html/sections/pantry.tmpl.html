@@ -1,0 +1,46 @@
+<section id="self">
+
+	<div class="block tabs is-large">
+		<ul>
+			<li><a hx-get="/" hx-target="#self">Current Week</a></li>
+			<li><a hx-get="/recipes" hx-target="#self">Recipes</a></li>
+			<li class="is-active"><a>Pantry</a></li>
+		</ul>
+	</div>
+
+	<div class="level mb-4">
+		<div class="level-left">
+			<!-- Empty left div to push the button to the right -->
+		</div>
+		<div class="level-right">
+			<button class="button is-primary mr-3" id="addIngredientButton" hx-get="/pantry/add" hx-target="#self">Add
+				Ingredient</button>
+		</div>
+	</div>
+	<div class="table-container">
+		<table class="table is-fullwidth is-hoverable is-responsive">
+			<thead>
+				<tr>
+					<th>Ingredient</th>
+					<th>Amount</th>
+					<th>Unit</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				{{range .View.Ingredients}}
+				<tr>
+					<td>{{.Name}}</td>
+					<td>{{.Amount}}</td>
+					<td>{{.Unit.Name}}</td>
+					<td>
+						<button disabled class="button is-small is-info" hx-get="/pantry/edit" hx-target="#self"
+							hx-vals="recipeID={{.ID}}">Edit</button>
+					</td>
+				</tr>
+				{{end}}
+			</tbody>
+		</table>
+	</div>
+
+</section>

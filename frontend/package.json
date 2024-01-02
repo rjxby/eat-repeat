@@ -1,0 +1,17 @@
+{
+  "name": "eat-repeat-frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "mkdir dist && cp icon/favicon.ico dist/ && cp node_modules/bulma/css/bulma.min.css dist/ && cp node_modules/htmx.org/dist/htmx.min.js dist/",
+    "clean-build": "rm -rf dist"
+  },
+  "author": "rjxby",
+  "license": "MIT",
+  "dependencies": {
+    "bulma": "^0.9.4",
+    "htmx.org": "^1.9.5"
+  }
+}

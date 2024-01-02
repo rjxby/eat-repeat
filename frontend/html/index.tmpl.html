@@ -1,0 +1,22 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Eat Repeat</title>
+    <link rel="icon" type="image/x-icon" href="/dist/favicon.ico">
+    <link rel="stylesheet" type="text/css" href="/dist/bulma.min.css">
+</head>
+
+<body>
+    <div id="app">        
+        {{template "main" .}}
+    </div>
+
+    <script src="/dist/htmx.min.js"></script>
+</body>
+
+</html>
+{{end}}
