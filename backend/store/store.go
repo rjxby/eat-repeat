@@ -1,12 +1,15 @@
 package store
 
 import (
+	"database/sql"
 	"time"
 )
 
-// TODO: add pagination
 type Recipes struct {
-	Recipes []RecipeV1
+	Recipes    []RecipeV1
+	Page       int
+	PageSize   int
+	SearchTerm string
 }
 
 // TODO: add pagination
@@ -26,19 +29,33 @@ type Day struct {
 	Title        string
 }
 
+type JobStatus string
+
+const (
+	JobStatusPending    JobStatus = "pending"
+	JobStatusInProgress JobStatus = "in_progress"
+	JobStatusCompleted  JobStatus = "completed"
+	JobStatusFailed     JobStatus = "failed"
+)
+
+type JobV1 struct {
+	ID     uint      `gorm:"primaryKey;autoIncrement"`
+	Status JobStatus `gorm:"not null"`
+
+	CreatedAt time.Time
+	UpdatedAt sql.NullTime
+}
+
 type ServingV1 struct {
 	ID uint `gorm:"primaryKey;autoIncrement"`
 
 	RecipeID uint
 	Recipe   RecipeV1 `gorm:"foreignKey:RecipeID"`
 
-	TargetWeekNumber int
-	TargetYear       int
-
-	CookedAt time.Time
+	CookedAt sql.NullTime
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt sql.NullTime
 }
 
 type RecipeV1 struct {
@@ -49,7 +66,8 @@ type RecipeV1 struct {
 	Ingredients              []RecipeV1IngredientV1 `gorm:"foreignKey:RecipeV1ID"`
 	PreparationTimeInMinutes uint
 	CookingTimeInMinutes     uint
-	PdfUrl                   string
+	ThumbnailUrl             sql.NullString
+	PdfUrl                   sql.NullString
 
 	RecipeDifficultyID uint
 	RecipeDifficulty   RecipeDifficultyV1 `gorm:"foreignKey:RecipeDifficultyID"`
@@ -60,7 +78,7 @@ type RecipeV1 struct {
 	Servings []ServingV1 `gorm:"foreignKey:RecipeID"`
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt sql.NullTime
 }
 
 type RecipeDifficultyV1 struct {
@@ -71,7 +89,7 @@ type RecipeDifficultyV1 struct {
 	Recipes []RecipeV1 `gorm:"foreignKey:RecipeDifficultyID"`
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt sql.NullTime
 }
 
 type IngredientV1 struct {
@@ -83,7 +101,7 @@ type IngredientV1 struct {
 	Unit   UnitV1 `gorm:"foreignKey:UnitID"`
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt sql.NullTime
 }
 
 type UnitV1 struct {
@@ -94,7 +112,7 @@ type UnitV1 struct {
 	Ingredients []IngredientV1 `gorm:"foreignKey:UnitID"`
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
+	UpdatedAt sql.NullTime
 }
 
 type PantryV1 struct {

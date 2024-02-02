@@ -1,7 +1,9 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +14,7 @@ import (
 )
 
 var pdfStore = "data/recipes/"
+var imageStore = "data/images/"
 
 func Seed(db *gorm.DB) error {
 	// read csv file
@@ -83,9 +86,10 @@ func Seed(db *gorm.DB) error {
 			}
 		}
 
-		recipePdfUrl := fmt.Sprintf("%s%s.pdf", pdfStore, title)
+		recipePdfUrl := buildRecipePdfUrl(title)
+		recipeThumbnailUrl := buildRecipeThumbnailUrl(title)
 
-		recipesToSeed = append(recipesToSeed, RecipeV1{Title: title, Description: title, PdfUrl: strings.ToLower(recipePdfUrl)})
+		recipesToSeed = append(recipesToSeed, RecipeV1{Title: title, Description: title, PdfUrl: recipePdfUrl, ThumbnailUrl: recipeThumbnailUrl})
 	}
 
 	err = seedUnits(db, unitsToSeed)
@@ -203,6 +207,32 @@ func seedIngredients(db *gorm.DB, ingredients []IngredientV1) error {
 	}
 
 	return nil
+}
+
+func buildRecipePdfUrl(title string) sql.NullString {
+	lowerTitle := strings.ToLower(title)
+	recipePdfUrl := fmt.Sprintf("%s%s.pdf", pdfStore, lowerTitle)
+	if _, err := os.Stat(recipePdfUrl); errors.Is(err, os.ErrNotExist) {
+		return sql.NullString{}
+	}
+
+	return sql.NullString{
+		String: recipePdfUrl,
+		Valid:  true,
+	}
+}
+
+func buildRecipeThumbnailUrl(title string) sql.NullString {
+	lowerTitle := strings.ToLower(title)
+	recipeThumbnailUrl := fmt.Sprintf("%s%s/1.jpeg", imageStore, lowerTitle)
+	if _, err := os.Stat(recipeThumbnailUrl); errors.Is(err, os.ErrNotExist) {
+		return sql.NullString{}
+	}
+
+	return sql.NullString{
+		String: recipeThumbnailUrl,
+		Valid:  true,
+	}
 }
 
 func seedRecipes(db *gorm.DB, recipes []RecipeV1) error {

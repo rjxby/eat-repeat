@@ -28,10 +28,14 @@ ARG DRONE_BRANCH
 
 # if DRONE presented use DRONE_* git env to make version
 RUN \
-    if [ -z "$DRONE" ] ; then echo "runs outside of drone" && version="$(/script/git-rev.sh)" ; \
-    else version=${DRONE_TAG}${DRONE_BRANCH}-${DRONE_COMMIT:0:7}-$(date +%Y%m%d-%H:%M:%S) ; fi && \
+    if [ "$DRONE" = "true" ]; then \
+        DRONE_COMMIT_SHORT=$(echo $DRONE_COMMIT | cut -c 1-7) ; \
+        version=${DRONE_TAG}${DRONE_BRANCH}-${DRONE_COMMIT_SHORT}-$(date +%Y%m%d-%H:%M:%S) ; \
+    else \
+        echo "runs outside of drone" && version="unknown" ; \
+    fi && \
     echo "version=$version" && \
-    go build -tags embed -o service -ldflags "-X main.revision=${version} -s -w"
+    go build --tags "embed fts5" -o service -ldflags "-X main.revision=${version} -s -w"
 
 # Final stage
 FROM alpine:3.18.4
@@ -42,6 +46,9 @@ COPY --from=build-backend /backend/service .
 
 ARG RUN_MIGRATION
 ENV RUN_MIGRATION=$RUN_MIGRATION
+
+ARG PDF_READER_ENDPOINT
+ENV PDF_READER_ENDPOINT=$PDF_READER_ENDPOINT
 
 EXPOSE 8080
 

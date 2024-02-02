@@ -23,11 +23,12 @@ The backend includes a Docker setup for containerization. The Dockerfile is divi
   - Enables CGO for the Go build.
   - Supports versioning using Git information and Drone CI/CD environment variables.
   - Includes a mechanism to run migrations if the `RUN_MIGRATION` environment variable is set to `true`.
+  - Supports an `.env` file for settings like `RUN_MIGRATION`, `PDF_READER_ENDPOINT`, and `WORKER_TIMEOUT_IN_SECONDS`.
 
 - **Final Stage (Alpine):**
   - Creates a lightweight Alpine-based image for production.
   - Exposes port 8080 for communication.
-  - Sets environment variables, including `RUN_MIGRATION`, which controls whether migrations should be run.
+  - Sets environment variables, including `RUN_MIGRATION`, which controls whether migrations should be run, and other configurable settings.
   - Defines the entry point command for the service.
 
 ### Frontend (HTML, htmx, Node.js)
@@ -48,7 +49,7 @@ The project has a CI/CD pipeline set up using Drone. The pipeline triggers on pu
 
 - **Build and Deploy:**
   - Uses Docker plugins to build and deploy the application.
-  - Retrieves environment variables such as `DRONE`, `DRONE_TAG`, `DRONE_COMMIT`, `DRONE_BRANCH`, and `RUN_MIGRATION` securely from secrets.
+  - Retrieves environment variables such as `DRONE`, `DRONE_TAG`, `DRONE_COMMIT`, `DRONE_BRANCH`, and configurable settings from secrets.
   - Tags Docker images based on the branch name.
   - Pushes the images to the specified Docker registry.
 
@@ -67,7 +68,7 @@ To run the project locally, follow these steps:
 4. Run the Docker container:
 
     ```bash
-    docker run -p 8080:8080 -e RUN_MIGRATION=true eat-repeat
+    docker run -p 8080:8080 -e RUN_MIGRATION=true -e PDF_READER_ENDPOINT=http://example.com -e WORKER_TIMEOUT_IN_SECONDS=30 eat-repeat
     ```
 
 5. Access the application in your browser at [http://localhost:8080](http://localhost:8080).

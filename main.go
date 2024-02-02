@@ -12,6 +12,7 @@ import (
 	"github.com/rjxby/eat-repeat/backend/scheduler"
 	"github.com/rjxby/eat-repeat/backend/server"
 	"github.com/rjxby/eat-repeat/backend/store"
+	"github.com/rjxby/eat-repeat/backend/worker"
 )
 
 var revision string
@@ -37,6 +38,7 @@ func main() {
 		Chef:          chef.New(dataStore),
 		Scheduler:     scheduler.New(),
 		Pantry:        pantry.New(dataStore),
+		Worker:        worker.New(appSettings.PdfReaderEndpoint, appSettings.WorkerTimeoutInSeconds, dataStore),
 		Version:       revision,
 		TemplateCache: templateCache,
 	}
@@ -66,12 +68,15 @@ func getEngine(runMigration bool) (*store.Database, error) {
 }
 
 type Settings struct {
-	RunMigration bool
+	RunMigration           bool
+	PdfReaderEndpoint      string
+	WorkerTimeoutInSeconds int64
 }
 
 func parseEnvironment() Settings {
 	settings := Settings{
-		RunMigration: false,
+		RunMigration:           false,
+		WorkerTimeoutInSeconds: 900, // 900s = 15 min
 	}
 
 	runMigrationStr := os.Getenv("RUN_MIGRATION")
@@ -80,6 +85,22 @@ func parseEnvironment() Settings {
 		settings.RunMigration, err = strconv.ParseBool(runMigrationStr)
 		if err != nil {
 			fmt.Println("Error parsing RUN_MIGRATION environment variable:", err)
+		}
+	}
+
+	pdfReaderEndpointStr := os.Getenv("PDF_READER_ENDPOINT")
+	if pdfReaderEndpointStr == "" {
+		log.Fatal("PDF_READER_ENDPOINT environment variable is not set")
+	} else {
+		settings.PdfReaderEndpoint = pdfReaderEndpointStr
+	}
+
+	workerTimeoutInSecondsStr := os.Getenv("WORKER_TIMEOUT_IN_SECONDS")
+	if workerTimeoutInSecondsStr != "" {
+		var err error
+		settings.WorkerTimeoutInSeconds, err = strconv.ParseInt(workerTimeoutInSecondsStr, 10, 64)
+		if err != nil {
+			fmt.Println("Error parsing WORKER_TIMEOUT_IN_SECONDS environment variable:", err)
 		}
 	}
 

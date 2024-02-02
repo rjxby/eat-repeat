@@ -1,0 +1,1 @@
+POST http://0.0.0.0:8080/api/v1/recipes/sync HTTP/1.1

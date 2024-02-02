@@ -8,37 +8,17 @@
 		</ul>
 	</div>
 
-	<form class="section">
+	<div class="section">
 		<div class="columns is-multiline">
-			{{ range .View.Recipes }}
-				<div class="column is-one-third">
-					<div class="card">
-						<div class="card-image">
-							<figure class="image is-4by3">
-								<img src="https://bulma.io/images/placeholders/1280x960.png" alt="Placeholder image">
-							</figure>
-						</div>
-						<div class="card-content">
-							<a href="{{ .PdfUrl }}" class="title is-4">{{ .Title }}</a>
-		
-							<div class="content">
-								<p>{{ .Description }}</p>
-								<p>Preparation Time: {{ .PreparationTimeInMinutes }} minutes</p>
-								<p>Cooking Time: {{ .CookingTimeInMinutes }} minutes</p>
-								<p>Difficulty: {{ .RecipeDifficulty.Name }}</p>
-								<p>Rating: {{ .Rating }}</p>
-								<br>
-								<p>Last Eaten: {{ "Need This Feature" }}</p>
-		
-								<div class="has-text-centered" style="margin-top: 1rem;">
-									<button class="button is-primary" hx-post="/recipes/select" hx-target="#self" hx-vars="recipeID:{{.ID}}">Select</button>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			{{ end }}
+			<div class="column is-one-third">
+				<input class="input is-medium" type="search" name="searchTerm" placeholder="Search"
+					hx-get="/recipes/more?page=1&pageSize=9" hx-trigger="input changed delay:500ms, search"
+					hx-target="#recipes-cards">
+			</div>
 		</div>
-	</form>
+		<div id="recipes-cards" class="columns is-multiline">
+			{{template "recipes-content" .View.RecipesCards}}
+		</div>
+	</div>
 
 </section>

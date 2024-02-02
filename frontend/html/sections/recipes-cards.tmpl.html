@@ -1,0 +1,51 @@
+{{ define "recipes-content" }}
+
+{{ $lastIndex := subtract .PageSize 1 }}
+{{ $nextPage := add .Page 1 }}
+{{ $pageSize := .PageSize }}
+{{ $searchTerm := .SearchTerm }}
+
+{{ range $index, $recipe := .Recipes }}
+	{{ if eq $index $lastIndex }}
+	<div class="column is-one-third" id="loadMoreTrigger"
+		hx-get="/recipes/more?page={{$nextPage}}&pageSize={{$pageSize}}&searchTerm={{$searchTerm}}" hx-trigger="revealed"
+		hx-swap="afterend">
+	{{ else }}
+	<div class="column is-one-third">
+	{{ end }}
+		<div class="card">
+			<div class="card-image">
+				{{ if $recipe.ThumbnailUrl.Valid }}
+				<figure class="image is-16by9">
+					<img src="{{ $recipe.ThumbnailUrl.String }}" alt="{{$recipe.Title}}">
+				</figure>
+				{{ else }}
+				<figure class="image is-4by3">
+					<img src="https://bulma.io/images/placeholders/1280x960.png" alt="Placeholder image">
+				</figure>
+				{{ end }}
+			</div>
+			<div class="card-content">
+				{{ if $recipe.PdfUrl.Valid }}
+				<a href="{{ $recipe.PdfUrl.String }}" class="title is-4">{{ $recipe.Title }}</a>
+				{{ end }}
+
+				<div class="content">
+					<p><b>Cooking Time: {{ $recipe.CookingTimeInMinutes }} minutes</b></p>
+
+					{{ range $index, $ingredient := .Ingredients }}
+						<span class="tag is-info">{{ toLowerStr $ingredient.Ingredient.Name }}</span>
+					{{ end }}
+
+					<div class="has-text-centered" style="margin-top: 1rem;">
+						<button class="button is-primary" hx-post="/recipes/select" hx-target="#self"
+							hx-vars="recipeID:{{$recipe.ID}}">Select</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	{{ end }}
+
+	{{ end }}

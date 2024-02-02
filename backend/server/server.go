@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,13 +27,14 @@ type Server struct {
 	Chef          Chef
 	Scheduler     Scheduler
 	Pantry        Pantry
+	Worker        Worker
 	Version       string
 	TemplateCache map[string]*template.Template
 }
 
 type Chef interface {
-	GetRecipes() (recipes *store.Recipes, err error)
-	GetServingsByWeekYear(weekNumber int, year int) (servings *[]store.ServingV1, err error)
+	GetRecipes(page int, pageSize int, searchTerm string) (recipes *store.Recipes, err error)
+	GetServings() (servings *[]store.ServingV1, err error)
 	SaveServing(serving *store.ServingV1) (err error)
 	GetServing(id uint) (serving *store.ServingV1, err error)
 }
@@ -46,6 +48,10 @@ type Pantry interface {
 type Scheduler interface {
 	GetWeek() (week *store.Week, err error)
 	GetNextWeek() (week *store.Week, err error)
+}
+
+type Worker interface {
+	RunSyncRecipes() (job *store.JobV1, err error)
 }
 
 // Run the lisener and request's router, activate rest server
@@ -87,6 +93,7 @@ func (s Server) routes() chi.Router {
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Use(Logger(log.Default()))
 		r.Get("/recipes", s.getRecepiesCtrl)
+		r.Post("/recipes/sync", s.syncRecepiesCtrl)
 	})
 
 	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +114,7 @@ func (s Server) routes() chi.Router {
 		r.Post("/servings/cooked", s.cookedViewCtrl)
 
 		r.Get("/recipes", s.recipesViewCtrl)
+		r.Get("/recipes/more", s.moreRecipesViewCtrl)
 		r.Post("/recipes/select", s.selectRecipeViewCtrl)
 
 		r.Get("/pantry", s.pantryViewCtrl)
@@ -147,7 +155,9 @@ func (s Server) routes() chi.Router {
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/pdf")
+		// Determine the content type based on the file extension
+		contentType := mime.TypeByExtension(filepath.Ext(filePath))
+		w.Header().Set("Content-Type", contentType)
 
 		// Write the file content to the response
 		w.Write(fileData)
@@ -159,7 +169,24 @@ func (s Server) routes() chi.Router {
 // GET /v1/recepies
 func (s Server) getRecepiesCtrl(w http.ResponseWriter, r *http.Request) {
 
-	recipes, err := s.Chef.GetRecipes()
+	// Parse the page and pageSize from the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, JSON{"error": err.Error(), "message": "invalid page parameter"})
+		return
+	}
+
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, JSON{"error": err.Error(), "message": "invalid pageSize parameter"})
+		return
+	}
+
+	searchTerm := r.URL.Query().Get("searchTerm")
+
+	recipes, err := s.Chef.GetRecipes(page, pageSize, searchTerm)
 	if err != nil {
 		log.Print("[ERROR] failed to load recepies")
 
@@ -170,4 +197,20 @@ func (s Server) getRecepiesCtrl(w http.ResponseWriter, r *http.Request) {
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, recipes)
+}
+
+// POST /v1/recepies/sync
+func (s Server) syncRecepiesCtrl(w http.ResponseWriter, r *http.Request) {
+
+	job, err := s.Worker.RunSyncRecipes()
+	if err != nil {
+		log.Print("[ERROR] failed to run sync job")
+
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, JSON{"error": err.Error(), "message": "failed to run sync job"})
+		return
+	}
+
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, job)
 }

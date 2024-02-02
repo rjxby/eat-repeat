@@ -20,30 +20,26 @@ func New(engine Engine) *RecipeProc {
 
 // Engine defines interface to save and load recipes
 type Engine interface {
-	LoadRecipes() (result *store.Recipes, err error)
-	LoadServingsByWeekYear(weekNumber int, year int) (result *[]store.ServingV1, err error)
+	LoadRecipes(page int, pageSize int, searchTerm string) (result *store.Recipes, err error)
+	LoadServings() (result *[]store.ServingV1, err error)
 	SaveServing(serving *store.ServingV1) (err error)
 	GetServing(id uint) (result *store.ServingV1, err error)
 }
 
-func (p RecipeProc) GetRecipes() (recipes *store.Recipes, err error) {
-	recipes, err = p.engine.LoadRecipes()
+func (p RecipeProc) GetRecipes(page int, pageSize int, searchTerm string) (recipes *store.Recipes, err error) {
+	recipes, err = p.engine.LoadRecipes(page, pageSize, searchTerm)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("[INFO] recipes are loaded: %v", recipes)
 
 	return recipes, nil
 }
 
-func (p RecipeProc) GetServingsByWeekYear(weekNumber int, year int) (servings *[]store.ServingV1, err error) {
-	servings, err = p.engine.LoadServingsByWeekYear(weekNumber, year)
+func (p RecipeProc) GetServings() (servings *[]store.ServingV1, err error) {
+	servings, err = p.engine.LoadServings()
 	if err != nil {
 		return nil, err
 	}
-
-	log.Printf("[INFO] servings are loaded for %v-%v: %v", weekNumber, year, servings)
 
 	return servings, nil
 }

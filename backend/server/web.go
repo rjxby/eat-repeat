@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rjxby/eat-repeat/backend/store"
@@ -20,17 +22,24 @@ const (
 
 	servingsTmplName       = "servings.tmpl.html"
 	recipesTmplName        = "recipes.tmpl.html"
+	moreRecipesTmplName    = "more-recipes.tmpl.html"
 	pantryTmplName         = "pantry.tmpl.html"
 	ingredientFormTmplName = "ingredient-form.tmpl.html"
 )
 
 type servingsView struct {
-	Week     store.Week
 	Servings []store.ServingV1
 }
 
 type recipesView struct {
-	Recipes []store.RecipeV1
+	RecipesCards recipesCardsView
+}
+
+type recipesCardsView struct {
+	Recipes    []store.RecipeV1
+	Page       int
+	PageSize   int
+	SearchTerm string
 }
 
 type pantryView struct {
@@ -84,14 +93,7 @@ func (s Server) render(w http.ResponseWriter, status int, page, tmplName string,
 // renders the home page with servings
 // GET /
 func (s Server) indexCtrl(w http.ResponseWriter, r *http.Request) {
-	week, err := s.Scheduler.GetWeek()
-	if err != nil {
-		log.Printf("[ERROR] %v", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	servings, err := s.Chef.GetServingsByWeekYear(week.Number, week.Year)
+	servings, err := s.Chef.GetServings()
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -100,7 +102,6 @@ func (s Server) indexCtrl(w http.ResponseWriter, r *http.Request) {
 
 	data := templateData{
 		View: servingsView{
-			Week:     *week,
 			Servings: *servings,
 		},
 	}
@@ -125,7 +126,10 @@ func (s Server) cookedViewCtrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serving.CookedAt = time.Now()
+	serving.CookedAt = sql.NullTime{
+		Time:  time.Now().UTC(),
+		Valid: true,
+	}
 
 	if err := s.Chef.SaveServing(serving); err != nil {
 		log.Printf("[ERROR] %v", err)
@@ -139,7 +143,8 @@ func (s Server) cookedViewCtrl(w http.ResponseWriter, r *http.Request) {
 // renders the show recipes page
 // GET /recipes
 func (s Server) recipesViewCtrl(w http.ResponseWriter, r *http.Request) {
-	recipes, err := s.Chef.GetRecipes()
+	// it's 9 elements page size due to grid size on HTML, search by default is empty string
+	recipes, err := s.Chef.GetRecipes(1, 9, "")
 	if err != nil {
 		log.Printf("[ERROR] %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -148,11 +153,54 @@ func (s Server) recipesViewCtrl(w http.ResponseWriter, r *http.Request) {
 
 	data := templateData{
 		View: recipesView{
-			Recipes: recipes.Recipes,
+			RecipesCards: recipesCardsView{
+				Recipes:    recipes.Recipes,
+				Page:       recipes.Page,
+				PageSize:   recipes.PageSize,
+				SearchTerm: recipes.SearchTerm,
+			},
 		},
 	}
 
 	s.render(w, http.StatusOK, recipesTmplName, recipesTmplName, data)
+}
+
+// renders the show more recipes cards
+// GET /recipes/more
+func (s Server) moreRecipesViewCtrl(w http.ResponseWriter, r *http.Request) {
+
+	// Parse the page and pageSize from the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		http.Error(w, "invalid page parameter", http.StatusBadRequest)
+		return
+	}
+
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil {
+		http.Error(w, "invalid pageSize parameter", http.StatusBadRequest)
+		return
+	}
+
+	searchTerm := r.URL.Query().Get("searchTerm")
+
+	recipes, err := s.Chef.GetRecipes(page, pageSize, searchTerm)
+	if err != nil {
+		log.Printf("[ERROR] %v", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	data := templateData{
+		View: recipesCardsView{
+			Recipes:    recipes.Recipes,
+			Page:       recipes.Page,
+			PageSize:   recipes.PageSize,
+			SearchTerm: recipes.SearchTerm,
+		},
+	}
+
+	s.render(w, http.StatusOK, moreRecipesTmplName, moreRecipesTmplName, data)
 }
 
 // re-renders the recipes page with a mutaded recipe
@@ -165,17 +213,8 @@ func (s Server) selectRecipeViewCtrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nextWeek, err := s.Scheduler.GetNextWeek()
-	if err != nil {
-		log.Printf("[ERROR] %v", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
 	serving := store.ServingV1{
-		RecipeID:         uint(selectedRecipeId),
-		TargetWeekNumber: nextWeek.Number,
-		TargetYear:       nextWeek.Year,
+		RecipeID: uint(selectedRecipeId),
 	}
 
 	if err := s.Chef.SaveServing(&serving); err != nil {
@@ -284,7 +323,7 @@ func NewTemplateCache() (map[string]*template.Template, error) {
 			page,
 		}
 
-		ts, err := template.New(name).Funcs(template.FuncMap{"until": until}).ParseFS(frontend.Templates, patterns...)
+		ts, err := template.New(name).Funcs(template.FuncMap{"until": until, "subtract": subtract, "add": add, "toLowerStr": toLowerStr}).ParseFS(frontend.Templates, patterns...)
 		if err != nil {
 			return nil, err
 		}
@@ -301,4 +340,16 @@ func until(n int) []int {
 		result[i] = i
 	}
 	return result
+}
+
+func subtract(first int, second int) int {
+	return first - second
+}
+
+func add(first int, second int) int {
+	return first + second
+}
+
+func toLowerStr(input string) string {
+	return strings.ToLower(input)
 }
