@@ -30,6 +30,7 @@ type Server struct {
 	Worker        Worker
 	Version       string
 	TemplateCache map[string]*template.Template
+	Settings      Settings
 }
 
 type Chef interface {
@@ -52,6 +53,13 @@ type Scheduler interface {
 
 type Worker interface {
 	RunSyncRecipes() (job *store.JobV1, err error)
+}
+
+type Settings struct {
+	RunMigration           bool
+	PdfReaderEndpoint      string
+	WorkerTimeoutInSeconds int64
+	StaticContentEndpoint  string
 }
 
 // Run the lisener and request's router, activate rest server
@@ -166,51 +174,22 @@ func (s Server) routes() chi.Router {
 	return router
 }
 
-// GET /v1/recepies
-func (s Server) getRecepiesCtrl(w http.ResponseWriter, r *http.Request) {
-
-	// Parse the page and pageSize from the query parameters
-	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+func parseQueryParam(param string) (int, error) {
+	value, err := strconv.Atoi(param)
 	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, JSON{"error": err.Error(), "message": "invalid page parameter"})
-		return
+		return 0, err
 	}
-
-	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, JSON{"error": err.Error(), "message": "invalid pageSize parameter"})
-		return
-	}
-
-	searchTerm := r.URL.Query().Get("searchTerm")
-
-	recipes, err := s.Chef.GetRecipes(page, pageSize, searchTerm)
-	if err != nil {
-		log.Print("[ERROR] failed to load recepies")
-
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, JSON{"error": err.Error(), "message": "failed to load recepies"})
-		return
-	}
-
-	render.Status(r, http.StatusOK)
-	render.JSON(w, r, recipes)
+	return value, nil
 }
 
-// POST /v1/recepies/sync
-func (s Server) syncRecepiesCtrl(w http.ResponseWriter, r *http.Request) {
+func renderBadRequest(w http.ResponseWriter, r *http.Request, message string, err error) {
+	log.Printf("[ERROR] %s: %v", message, err)
+	render.Status(r, http.StatusBadRequest)
+	render.JSON(w, r, JSON{"error": err.Error(), "message": message})
+}
 
-	job, err := s.Worker.RunSyncRecipes()
-	if err != nil {
-		log.Print("[ERROR] failed to run sync job")
-
-		render.Status(r, http.StatusInternalServerError)
-		render.JSON(w, r, JSON{"error": err.Error(), "message": "failed to run sync job"})
-		return
-	}
-
-	render.Status(r, http.StatusOK)
-	render.JSON(w, r, job)
+func renderInternalServerError(w http.ResponseWriter, r *http.Request, message string, err error) {
+	log.Printf("[ERROR] %s: %v", message, err)
+	render.Status(r, http.StatusInternalServerError)
+	render.JSON(w, r, JSON{"error": err.Error(), "message": message})
 }

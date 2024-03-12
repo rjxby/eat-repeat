@@ -41,6 +41,7 @@ func main() {
 		Worker:        worker.New(appSettings.PdfReaderEndpoint, appSettings.WorkerTimeoutInSeconds, dataStore),
 		Version:       revision,
 		TemplateCache: templateCache,
+		Settings:      appSettings,
 	}
 
 	if err := srv.Run(context.Background()); err != nil {
@@ -67,14 +68,8 @@ func getEngine(runMigration bool) (*store.Database, error) {
 	return database, nil
 }
 
-type Settings struct {
-	RunMigration           bool
-	PdfReaderEndpoint      string
-	WorkerTimeoutInSeconds int64
-}
-
-func parseEnvironment() Settings {
-	settings := Settings{
+func parseEnvironment() server.Settings {
+	settings := server.Settings{
 		RunMigration:           false,
 		WorkerTimeoutInSeconds: 900, // 900s = 15 min
 	}
@@ -102,6 +97,13 @@ func parseEnvironment() Settings {
 		if err != nil {
 			fmt.Println("Error parsing WORKER_TIMEOUT_IN_SECONDS environment variable:", err)
 		}
+	}
+
+	staticContentEndpointStr := os.Getenv("STATIC_CONTENT_ENDPOINT")
+	if staticContentEndpointStr == "" {
+		log.Fatal("STATIC_CONTENT_ENDPOINT environment variable is not set")
+	} else {
+		settings.StaticContentEndpoint = staticContentEndpointStr
 	}
 
 	return settings
